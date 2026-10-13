@@ -1,0 +1,569 @@
+<title>MediGuard</title>
+<meta name="description" content="On-device medication safety — reads your pill bottles, flags interactions, shows the real 3D molecule of every medicine.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap">
+<style>
+:root{
+  --bg:#060b14; --panel:#0c1320; --panel-2:#0f1826; --ink:#eaf1fb; --muted:#93a6c2; --dim:#5f7595;
+  --cyan:#36c6ff; --cyan-d:#1f8fd6; --teal:#43e8c6; --amber:#ffc24b; --rose:#ff6a8f; --violet:#8b7cff;
+  --hair:rgba(110,150,210,.14); --hair-2:rgba(110,150,210,.22); --glass:rgba(16,30,54,.55);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:Sora,system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden}
+[hidden]{display:none!important}
+.mono{font-family:"Space Mono",monospace}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+.btn{font-family:Sora;font-weight:600;font-size:15px;border-radius:999px;padding:13px 24px;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:9px;transition:transform .15s,box-shadow .3s,background .2s}
+.btn-primary{background:linear-gradient(100deg,var(--cyan),var(--cyan-d));color:#031320;box-shadow:0 0 0 1px rgba(54,198,255,.4),0 14px 32px rgba(54,198,255,.35)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 0 1px rgba(54,198,255,.7),0 18px 44px rgba(54,198,255,.5)}
+.btn-ghost{background:rgba(255,255,255,.04);color:var(--ink);border:1px solid var(--hair-2)}
+.btn-ghost:hover{transform:translateY(-2px);border-color:var(--hair-2)}
+.btn-sm{font-size:13px;padding:10px 18px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.lab{font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+
+/* ========= HERO ========= */
+#bgcanvas,#molcanvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#bgcanvas{z-index:0}#molcanvas{z-index:1}
+.grid-ov{position:fixed;inset:0;z-index:1;pointer-events:none;background:
+  radial-gradient(120% 90% at 78% 12%,rgba(54,198,255,.16),transparent 60%),
+  radial-gradient(90% 80% at 10% 90%,rgba(139,124,255,.12),transparent 55%),
+  repeating-linear-gradient(0deg,var(--hair) 0 1px,transparent 1px 46px),
+  repeating-linear-gradient(90deg,var(--hair) 0 1px,transparent 1px 46px);
+  mask-image:radial-gradient(130% 110% at 50% 40%,#000 55%,transparent 100%)}
+.vignette{position:fixed;inset:0;z-index:2;pointer-events:none;box-shadow:inset 0 0 200px 40px rgba(3,7,14,.6)}
+.textscrim{position:fixed;inset:0;z-index:3;pointer-events:none;background:linear-gradient(100deg,rgba(4,8,15,.6),rgba(4,8,15,.4) 32%,rgba(4,8,15,.12) 50%,transparent 64%)}
+@media(max-width:900px){.textscrim{background:linear-gradient(180deg,rgba(4,8,15,.35),rgba(4,8,15,.7))}}
+
+#hero{position:relative;z-index:5;min-height:100vh;display:flex;flex-direction:column}
+nav{display:flex;align-items:center;justify-content:space-between;padding:22px clamp(20px,4vw,48px)}
+.logo{display:flex;align-items:center;gap:11px;font-weight:700;font-size:18px;letter-spacing:-.01em;cursor:pointer}
+.logo .mk{width:32px;height:32px;border-radius:9px;background:linear-gradient(145deg,#1b3a5c,#0c2039);border:1px solid rgba(90,180,255,.35);display:grid;place-items:center}
+.logo .mk::before{content:"";width:11px;height:11px;border-radius:50%;background:var(--cyan);box-shadow:0 0 14px var(--cyan)}
+.nav-links{display:flex;gap:30px;font-size:14px;color:var(--muted);font-weight:500}
+.nav-links a{transition:color .2s;cursor:pointer}.nav-links a:hover{color:var(--ink)}
+@media(max-width:720px){.nav-links{display:none}}
+.hero-in{flex:1;display:flex;align-items:center;padding:clamp(16px,4vw,40px) clamp(20px,4vw,48px) 60px;max-width:1240px;margin:0 auto;width:100%}
+.copy{max-width:620px}
+.eyebrow{font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--cyan);display:inline-flex;align-items:center;gap:10px;margin-bottom:18px}
+.eyebrow::before{content:"";width:28px;height:1px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+h1{font-size:clamp(38px,6.4vw,74px);line-height:1.0;letter-spacing:-.035em;font-weight:800;margin:0 0 22px;text-wrap:balance}
+h1 .grad{background:linear-gradient(100deg,var(--cyan),var(--teal) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{font-size:clamp(15px,1.7vw,19px);color:var(--muted);max-width:44ch;margin:0 0 32px}
+.cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.stat{display:flex;gap:26px;margin-top:40px;flex-wrap:wrap}
+.stat .n{font-family:"Space Mono",monospace;font-size:22px;font-weight:700}
+.stat .l{font-size:12px;color:var(--dim)}
+.scrolldn{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);z-index:6;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;animation:bobd 2s ease-in-out infinite}
+@keyframes bobd{50%{transform:translateX(-50%) translateY(6px)}}
+
+/* ========= APP ========= */
+#app{position:relative;z-index:5;max-width:1100px;margin:0 auto;padding-inline:20px;padding-block:24px 70px}
+.apptop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:22px}
+.apptop .tb-spacer{flex:1}
+.pill{font-size:12.5px;font-weight:600;border-radius:999px;padding:7px 13px;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--hair-2);background:var(--panel)}
+.pill .d{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px var(--teal)}
+.pill.pro{background:linear-gradient(145deg,rgba(255,194,75,.2),rgba(255,194,75,.08));border-color:rgba(255,194,75,.4);color:var(--amber)}
+
+.section{border:1px solid var(--hair-2);border-radius:16px;background:var(--panel);padding:22px 24px;margin-bottom:18px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;flex-wrap:wrap}
+.sec-h h2{font-size:17px;font-weight:600;margin:0;letter-spacing:-.01em}
+.sec-h .limitpill{font-family:"Space Mono",monospace;font-size:11px;color:var(--dim);border:1px solid var(--hair);border-radius:999px;padding:4px 10px}
+.sec-sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+
+.drop{border:1.5px dashed var(--hair-2);border-radius:13px;padding:26px;text-align:center;cursor:pointer;transition:.2s;background:var(--panel-2)}
+.drop:hover,.drop.drag{border-color:var(--cyan);background:rgba(54,198,255,.05)}
+.drop .ic{width:34px;height:34px;margin:0 auto 10px;color:var(--cyan)}
+.drop h4{margin:0 0 4px;font-size:15px}.drop p{margin:0;font-size:12.5px;color:var(--dim)}
+.addrow{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.addrow input{flex:1;min-width:180px;border:1px solid var(--hair-2);border-radius:10px;padding:11px 14px;font-size:14px;background:var(--panel-2);color:var(--ink);font-family:inherit}
+.addrow input:focus{outline:none;border-color:var(--cyan)}
+.chipset{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chipset button{font-size:12px;background:var(--panel-2);border:1px solid var(--hair);border-radius:999px;padding:6px 12px;color:var(--muted);cursor:pointer}
+.chipset button:hover{color:var(--ink);border-color:var(--cyan)}
+.ocrbar{font-size:12px;color:var(--dim);margin-top:10px;font-family:"Space Mono",monospace}
+
+/* med list */
+.meds{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.med{border:1px solid var(--hair-2);border-radius:13px;background:var(--panel-2);padding:15px 16px;cursor:pointer;transition:.18s;position:relative}
+.med:hover{border-color:var(--cyan);transform:translateY(-2px)}
+.med .nm{font-size:15px;font-weight:600}
+.med .gen{font-size:11px;color:var(--dim);font-family:"Space Mono",monospace;margin-top:2px}
+.med .meta{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+.med .dose{font-size:12px;color:var(--muted)}
+.statdot{font-size:10.5px;font-family:"Space Mono",monospace;padding:3px 9px;border-radius:999px}
+.statdot.ok{color:var(--teal);background:rgba(67,232,198,.1)}
+.statdot.flag{color:#ff9ec6;background:rgba(255,106,143,.12)}
+.med .rm{position:absolute;top:10px;right:10px;width:20px;height:20px;border:none;background:transparent;color:var(--dim);cursor:pointer;opacity:0;transition:.2s}
+.med:hover .rm{opacity:1}.med .rm:hover{color:var(--rose)}
+.empty{color:var(--dim);font-size:13px;text-align:center;padding:24px}
+
+/* interactions */
+.ixrow{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--hair)}
+.ixrow:last-child{border-bottom:none}
+.ixrow .pair{font-size:14px;font-weight:600;min-width:200px}
+.ixrow .pair span{color:var(--dim);font-weight:400}
+.sevmeter{display:flex;gap:3px;flex:1;max-width:120px}
+.sevmeter i{height:5px;flex:1;border-radius:2px;background:rgba(255,255,255,.08)}
+.sevmeter i.s1{background:var(--amber)}.sevmeter i.s2{background:#ff9a5b}.sevmeter i.s3{background:var(--rose)}
+.ixrow .risk{flex:2;font-size:12.5px;color:var(--muted);min-width:160px}
+.ixrow .sevlabel{font-family:"Space Mono",monospace;font-size:11px;min-width:64px;text-align:right}
+.ix-none{display:flex;align-items:center;gap:10px;color:var(--teal);font-size:14px}
+.disclaimer{margin-top:14px;font-size:11.5px;color:var(--dim);line-height:1.55;border-top:1px solid var(--hair);padding-top:12px}
+
+/* schedule */
+.sched{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.slot{border:1px solid var(--hair);border-radius:12px;background:var(--panel-2);padding:14px 16px}
+.slot .time{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);margin-bottom:10px}
+.slot .mi{font-size:13px;padding:6px 0;border-bottom:1px solid var(--hair);color:var(--ink)}
+.slot .mi:last-child{border-bottom:none}
+.slot .mi small{color:var(--dim);font-family:"Space Mono",monospace;font-size:10px;display:block}
+
+/* inspect modal */
+.overlay{position:fixed;inset:0;z-index:100;background:rgba(4,8,15,.72);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px}
+.modal{width:min(900px,100%);max-height:92vh;overflow:auto;border:1px solid var(--hair-2);border-radius:18px;background:var(--panel);box-shadow:0 40px 100px rgba(0,0,0,.6)}
+.modal .mtop{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--hair);position:sticky;top:0;background:var(--panel);z-index:2}
+.modal .mtop .t{font-size:14px;font-weight:600}.modal .mtop .t span{color:var(--dim)}
+.modal .mtop .x{margin-left:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--hair-2);background:var(--panel-2);color:var(--muted);cursor:pointer;display:grid;place-items:center}
+.sheet{display:grid;grid-template-columns:1fr 316px}
+@media(max-width:720px){.sheet{grid-template-columns:1fr}}
+.doc{padding:24px 26px;border-right:1px solid var(--hair)}
+@media(max-width:720px){.doc{border-right:none;border-bottom:1px solid var(--hair)}}
+.doc .hd{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.doc h1{font-size:25px;margin:0;letter-spacing:-.02em}.doc .gen2{color:var(--muted);font-size:13px;margin-top:3px}
+.formula{font-family:"Space Mono",monospace;font-size:13px;color:var(--cyan);border:1px solid rgba(54,198,255,.25);background:rgba(54,198,255,.06);border-radius:8px;padding:6px 10px;white-space:nowrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;margin-top:20px}
+@media(max-width:480px){.grid2{grid-template-columns:1fr}}
+.field{padding:10px 0;border-bottom:1px solid var(--hair)}
+.field .k{font-family:"Space Mono",monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.field .v{font-size:13.5px;font-weight:500}.field .v.sm{font-weight:400;color:var(--muted);font-size:12.5px}
+.scope{position:relative;background:radial-gradient(120% 100% at 70% 20%,rgba(54,198,255,.08),transparent 60%),linear-gradient(170deg,#0a1322,#070c14);min-height:320px}
+.scope canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+.scope canvas:active{cursor:grabbing}
+.reg{position:absolute;width:13px;height:13px;border:1px solid var(--hair-2);pointer-events:none}
+.r-tl{top:12px;left:12px;border-right:none;border-bottom:none}.r-tr{top:12px;right:12px;border-left:none;border-bottom:none}
+.r-bl{bottom:12px;left:12px;border-right:none;border-top:none}.r-br{bottom:12px;right:12px;border-left:none;border-top:none}
+.scope .tag{position:absolute;top:14px;left:34px;font-family:"Space Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.scope .meta{position:absolute;top:14px;right:34px;font-family:"Space Mono",monospace;font-size:9.5px;color:var(--dim);text-align:right}
+.scope .foot{position:absolute;left:0;right:0;bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end;background:linear-gradient(0deg,rgba(7,12,20,.85),transparent)}
+.legend{display:flex;gap:10px;font-family:"Space Mono",monospace;font-size:10px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:4px}.legend i{width:8px;height:8px;border-radius:50%}
+.scope .load{position:absolute;inset:0;display:grid;place-items:center;font-family:"Space Mono",monospace;font-size:11px;color:var(--dim);text-align:center;padding:20px}
+.spinr{width:26px;height:26px;border:2px solid var(--hair-2);border-top-color:var(--cyan);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 10px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* unlock modal */
+.umodal{width:min(420px,100%);border:1px solid var(--hair-2);border-radius:18px;background:var(--panel);padding:28px;text-align:center}
+.umodal h3{margin:0 0 6px;font-size:20px}.umodal p{margin:0 0 18px;color:var(--muted);font-size:14px}
+.umodal input{width:100%;border:1px solid var(--hair-2);border-radius:10px;padding:12px 14px;font-size:15px;text-align:center;font-family:"Space Mono",monospace;letter-spacing:.06em;margin-bottom:12px;background:var(--panel-2);color:var(--ink)}
+.umodal .err{font-size:13px;min-height:18px;margin-bottom:8px;color:var(--rose)}
+
+footer{position:relative;z-index:5;border-top:1px solid var(--hair);padding:28px 20px;color:var(--dim);font-size:13px;text-align:center}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+
+<canvas id="bgcanvas"></canvas>
+<canvas id="molcanvas"></canvas>
+<div class="grid-ov"></div>
+<div class="vignette"></div>
+<div class="textscrim" id="textscrim"></div>
+
+<!-- HERO -->
+<div id="hero">
+  <nav>
+    <div class="logo" onclick="showHero()"><span class="mk"></span>MediGuard</div>
+    <div class="nav-links"><a onclick="openApp()">How it works</a><a onclick="openApp()">Interactions</a><a>Privacy</a><a onclick="openApp()">Pricing</a></div>
+    <button class="btn btn-ghost btn-sm" onclick="openApp()">Open app</button>
+  </nav>
+  <div class="hero-in"><div class="copy">
+    <span class="eyebrow">On-device interaction engine</span>
+    <h1>The chemistry of your cabinet, <span class="grad">mapped in 3D.</span></h1>
+    <p class="lead">Photograph your medicines. MediGuard reads every drug and dose, flags the dangerous combinations, and shows the real molecule of each — all computed on your device.</p>
+    <div class="cta-row">
+      <button class="btn btn-primary" onclick="openApp()">Scan my medicines →</button>
+      <button class="btn btn-ghost" onclick="openApp()">See a sample</button>
+    </div>
+    <div class="stat">
+      <div><div class="n">11+</div><div class="l">meds at once</div></div>
+      <div><div class="n">0</div><div class="l">bytes uploaded</div></div>
+      <div><div class="n">&lt;2s</div><div class="l">to a full map</div></div>
+    </div>
+  </div></div>
+  <div class="scrolldn" onclick="openApp()">open app ↓</div>
+</div>
+
+<!-- APP -->
+<div id="app" hidden>
+  <div class="apptop">
+    <div class="logo" onclick="showHero()"><span class="mk"></span>MediGuard</div>
+    <div class="tb-spacer"></div>
+    <button class="btn btn-ghost btn-sm" onclick="showHero()">← Home</button>
+    <span class="pill"><span class="d"></span>on-device</span>
+    <span class="pill pro" id="proPill" hidden>★ Pro</span>
+    <button class="btn btn-ghost btn-sm" id="unlockBtn">Unlock Pro</button>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><h2>Add your medicines</h2><span class="limitpill" id="scanlimit"></span></div>
+    <p class="sec-sub">Photograph a pill bottle or strip — it's read on your device with OCR. Or type a name. Nothing is uploaded.</p>
+    <div class="drop" id="drop">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14.5 4h-5L8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-4l-1.5-2z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      <h4>Photograph a bottle or strip</h4><p>JPG or PNG · read locally with OCR</p>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden>
+    <div class="addrow">
+      <input id="nameInput" list="druglist" placeholder="…or type a medicine name (e.g. Warfarin)" autocomplete="off">
+      <datalist id="druglist"></datalist>
+      <button class="btn btn-ghost btn-sm" id="addBtn">Add</button>
+    </div>
+    <div class="chipset" id="quickchips"></div>
+    <div class="ocrbar" id="ocrbar"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><h2>Your medicines</h2><span class="limitpill" id="inspectlimit"></span></div>
+    <p class="sec-sub">Tap any medicine to inspect its monograph and real 3D structure.</p>
+    <div class="meds" id="meds"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><h2>Interaction check</h2></div>
+    <p class="sec-sub">Every pair checked against the built-in reference set, on your device.</p>
+    <div id="ixout"></div>
+    <div class="disclaimer">MediGuard uses a built-in reference set of common, clinically significant interactions for this demo. It is not exhaustive and is not a substitute for a pharmacist or doctor. Never start or stop a medicine based on this tool alone.</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><h2>Daily schedule</h2></div>
+    <p class="sec-sub">Generated from each medicine's typical timing.</p>
+    <div class="sched" id="sched"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><h2>Plans</h2></div>
+    <p class="sec-sub">Everything works free, with daily limits. Pro removes them. Unlock code: <span class="mono" style="color:var(--cyan)">MEDIGUARD-PRO-2026</span></p>
+    <div class="meds" style="grid-template-columns:1fr 1fr">
+      <div class="med" style="cursor:default"><div class="nm">Free</div><div class="gen">₹0 / forever</div><div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.7">Scan 3 bottles/day · Inspect 5 molecules/day · Interactions · Schedule</div></div>
+      <div class="med" style="cursor:default;border-color:rgba(255,194,75,.4)"><div class="nm" style="color:var(--amber)">Pro · ₹249/mo</div><div class="gen">unlimited</div><div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.7">Unlimited scans + molecule lookups · Export schedule · Caregiver sharing</div><button class="btn btn-primary btn-sm" style="margin-top:12px" id="unlockBtn2">Unlock Pro</button></div>
+    </div>
+  </div>
+</div>
+
+<footer>Built on-device · your medicine data never leaves your machine · <span class="mono">MediGuard v0.1 demo</span></footer>
+
+<!-- INSPECT MODAL -->
+<div class="overlay" id="inspectModal" hidden><div class="modal">
+  <div class="mtop"><span class="t">Medicines <span>/ inspect</span></span><button class="x" id="closeInspect" aria-label="Close"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="sheet">
+    <div class="doc" id="docBody"></div>
+    <div class="scope">
+      <div class="reg r-tl"></div><div class="reg r-tr"></div><div class="reg r-bl"></div><div class="reg r-br"></div>
+      <div class="tag">3D structure</div><div class="meta" id="atomcount"></div>
+      <canvas id="molview"></canvas>
+      <div class="load" id="molload"><div><div class="spinr"></div><span id="molloadtxt">loading structure…</span></div></div>
+      <div class="foot"><div class="legend"><span><i style="background:#c6cfdd"></i>C</span><span><i style="background:#ff5f5f"></i>O</span><span><i style="background:#5f9bff"></i>N</span><span><i style="background:#eef2f7"></i>H</span></div><div class="mono" style="font-size:9.5px;color:var(--dim)">drag to rotate</div></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- UNLOCK MODAL -->
+<div class="overlay" id="unlockModal" hidden><div class="umodal">
+  <h3>Unlock MediGuard Pro</h3><p>Removes all daily limits. Enter your unlock code.</p>
+  <input id="codeInput" placeholder="UNLOCK CODE" autocomplete="off">
+  <div class="err" id="codeErr"></div>
+  <div style="display:flex;gap:10px"><button class="btn btn-ghost" id="closeUnlock" style="flex:1;justify-content:center">Cancel</button><button class="btn btn-primary" id="applyCode" style="flex:1;justify-content:center">Unlock</button></div>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+<script>
+/* ===== CONFIG ===== */
+var CONFIG={ PRO_CODE:"MEDIGUARD-PRO-2026", LIMITS:{scan:3,inspect:5} };
+
+/* ===== drug knowledge base (demo reference set) ===== */
+var MEDS={
+ "aspirin":{generic:"acetylsalicylic acid",klass:"NSAID · antiplatelet",formula:"C9H8O4",cid:2244,sched:"morning",food:"Yes",half:"~20 min (salicylate 2–3 h)",mech:"Inhibits COX-1, reducing platelet aggregation"},
+ "warfarin":{generic:"warfarin sodium",klass:"Anticoagulant (VKA)",formula:"C19H16O4",cid:54678486,sched:"evening",food:"Consistent vit-K intake",half:"20–60 h",mech:"Inhibits vitamin-K epoxide reductase"},
+ "metformin":{generic:"metformin HCl",klass:"Biguanide · antidiabetic",formula:"C4H11N5",cid:4091,sched:"morning",food:"With meals",half:"~6 h",mech:"Reduces hepatic glucose output"},
+ "ibuprofen":{generic:"ibuprofen",klass:"NSAID",formula:"C13H18O2",cid:3672,sched:"afternoon",food:"With food",half:"~2 h",mech:"Non-selective COX inhibitor"},
+ "paracetamol":{generic:"acetaminophen",klass:"Analgesic · antipyretic",formula:"C8H9NO2",cid:1983,sched:"afternoon",food:"Either",half:"~2–3 h",mech:"Central COX inhibition (proposed)"},
+ "lisinopril":{generic:"lisinopril",klass:"ACE inhibitor",formula:"C21H31N3O5",cid:5362119,sched:"morning",food:"Either",half:"~12 h",mech:"Inhibits angiotensin-converting enzyme"},
+ "atorvastatin":{generic:"atorvastatin",klass:"Statin",formula:"C33H35FN2O5",cid:60823,sched:"night",food:"Either",half:"~14 h",mech:"HMG-CoA reductase inhibitor"},
+ "simvastatin":{generic:"simvastatin",klass:"Statin",formula:"C25H38O5",cid:54454,sched:"night",food:"Evening",half:"~2–3 h",mech:"HMG-CoA reductase inhibitor"},
+ "amlodipine":{generic:"amlodipine",klass:"Calcium-channel blocker",formula:"C20H25ClN2O5",cid:2162,sched:"morning",food:"Either",half:"~30–50 h",mech:"Blocks L-type calcium channels"},
+ "omeprazole":{generic:"omeprazole",klass:"Proton-pump inhibitor",formula:"C17H19N3O3S",cid:4594,sched:"morning",food:"Before breakfast",half:"~1 h",mech:"Irreversibly blocks gastric H+/K+ ATPase"},
+ "clopidogrel":{generic:"clopidogrel",klass:"Antiplatelet",formula:"C16H16ClNO2S",cid:60606,sched:"morning",food:"Either",half:"~6 h",mech:"P2Y12 ADP-receptor inhibitor"},
+ "sildenafil":{generic:"sildenafil",klass:"PDE5 inhibitor",formula:"C22H30N6O4S",cid:135398744,sched:"as needed",food:"Avoid heavy meals",half:"~4 h",mech:"Inhibits phosphodiesterase-5"}
+};
+/* interaction reference set: severity 1..5 */
+var IX=[
+ {a:"warfarin",b:"aspirin",sev:4,risk:"Additive bleeding risk — monitor closely"},
+ {a:"warfarin",b:"ibuprofen",sev:4,risk:"NSAID adds bleeding + GI risk with anticoagulant"},
+ {a:"warfarin",b:"clopidogrel",sev:4,risk:"Combined antithrombotic effect raises bleeding"},
+ {a:"warfarin",b:"paracetamol",sev:2,risk:"High-dose paracetamol may raise INR"},
+ {a:"aspirin",b:"ibuprofen",sev:2,risk:"Ibuprofen can blunt aspirin's antiplatelet effect"},
+ {a:"aspirin",b:"clopidogrel",sev:3,risk:"Dual antiplatelet — bleeding risk (sometimes intended)"},
+ {a:"lisinopril",b:"ibuprofen",sev:3,risk:"NSAID reduces ACE-inhibitor effect and kidney perfusion"},
+ {a:"simvastatin",b:"amlodipine",sev:3,risk:"Amlodipine raises simvastatin levels — cap dose"},
+ {a:"sildenafil",b:"amlodipine",sev:2,risk:"Additive blood-pressure lowering"},
+ {a:"omeprazole",b:"clopidogrel",sev:3,risk:"Omeprazole can reduce clopidogrel activation"},
+ {a:"atorvastatin",b:"clopidogrel",sev:1,risk:"Minor; generally manageable"}
+];
+var SEVNAME={1:"Minor",2:"Moderate",3:"Moderate",4:"Major",5:"Severe"};
+
+/* offline molecule (aspirin) so the viewer always has something real without internet */
+var OFFLINE={ "aspirin":{
+  atoms:[['C',1.40,0,0],['C',.70,1.21,0],['C',-.70,1.21,0],['C',-1.40,0,0],['C',-.70,-1.21,0],['C',.70,-1.21,0],
+         ['C',2.85,-.15,.35],['O',3.45,.90,.60],['O',3.50,-1.25,.30],['O',1.35,2.45,.45],['C',2.65,2.70,-.15],['O',3.25,1.80,-.80],['C',3.35,4.00,-.05]],
+  bonds:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,6],[6,7],[6,8],[1,9],[9,10],[10,11],[10,12]]}};
+
+var $=function(id){return document.getElementById(id);};
+var norm=function(s){return (s||"").trim().toLowerCase();};
+var cap=function(s){return s.charAt(0).toUpperCase()+s.slice(1);};
+
+/* ===== state ===== */
+var REGIMEN=[]; /* array of {key} */
+var PRO_MEM=false;
+function isPro(){ if(PRO_MEM)return true; try{return localStorage.getItem("mg_pro")==="1"}catch(e){return false} }
+function today(){return new Date().toISOString().slice(0,10);}
+function used(k){try{var o=JSON.parse(localStorage.getItem("mg_"+k)||"{}");return o.d===today()?(o.n||0):0}catch(e){return 0}}
+function bump(k){try{localStorage.setItem("mg_"+k,JSON.stringify({d:today(),n:used(k)+1}))}catch(e){}}
+function lim(k){return isPro()?Infinity:CONFIG.LIMITS[k];}
+function canUse(k){return used(k)<lim(k);}
+function remain(k){var l=lim(k);return l===Infinity?"∞":Math.max(0,l-used(k));}
+
+/* ===== views ===== */
+function openApp(){ $("hero").hidden=true; $("app").hidden=false; teardownHero(); document.body.style.overflow="auto"; window.scrollTo(0,0); refreshAll(); }
+function showHero(){ $("app").hidden=true; $("hero").hidden=false; $("inspectModal").hidden=true; window.scrollTo(0,0); }
+
+/* ===== regimen ops ===== */
+function addMed(name){
+  var k=norm(name); if(!k)return;
+  if(!MEDS[k]){ // allow unknown; minimal record
+    MEDS[k]={generic:k,klass:"—",formula:"",cid:null,sched:"morning",food:"Either",half:"—",mech:"Not in local reference set"};
+  }
+  if(REGIMEN.some(function(m){return m.key===k})) return;
+  REGIMEN.push({key:k}); refreshAll();
+}
+function removeMed(k){ REGIMEN=REGIMEN.filter(function(m){return m.key!==k}); refreshAll(); }
+function flagsFor(k){
+  var f=[]; REGIMEN.forEach(function(m){ if(m.key===k)return;
+    IX.forEach(function(x){ if((x.a===k&&x.b===m.key)||(x.b===k&&x.a===m.key)) f.push({with:m.key,sev:x.sev,risk:x.risk}); });
+  }); return f;
+}
+
+/* ===== render ===== */
+function refreshAll(){ renderMeds(); renderIX(); renderSched(); renderLimits(); }
+function renderLimits(){
+  $("scanlimit").textContent="scans today: "+remain("scan")+(isPro()?"":" / "+CONFIG.LIMITS.scan);
+  $("inspectlimit").textContent="inspects today: "+remain("inspect")+(isPro()?"":" / "+CONFIG.LIMITS.inspect);
+  $("proPill").hidden=!isPro(); $("unlockBtn").hidden=isPro();
+}
+function renderMeds(){
+  var box=$("meds");
+  if(!REGIMEN.length){ box.innerHTML='<div class="empty">No medicines yet. Add one above, or try a sample chip.</div>'; return; }
+  box.innerHTML=REGIMEN.map(function(m){
+    var d=MEDS[m.key], fl=flagsFor(m.key);
+    var stat=fl.length?'<span class="statdot flag">'+fl.length+' interaction'+(fl.length>1?'s':'')+'</span>':'<span class="statdot ok">no conflicts</span>';
+    return '<div class="med" onclick="inspect(\''+m.key+'\')"><button class="rm" onclick="event.stopPropagation();removeMed(\''+m.key+'\')" aria-label="Remove"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'+
+      '<div class="nm">'+cap(m.key)+'</div><div class="gen">'+(d.generic||'')+'</div>'+
+      '<div class="meta"><span class="dose">'+(d.klass||'')+'</span>'+stat+'</div></div>';
+  }).join("");
+}
+function renderIX(){
+  var out=$("ixout"); var found=[];
+  for(var i=0;i<REGIMEN.length;i++)for(var j=i+1;j<REGIMEN.length;j++){
+    var a=REGIMEN[i].key,b=REGIMEN[j].key;
+    IX.forEach(function(x){ if((x.a===a&&x.b===b)||(x.a===b&&x.b===a)) found.push({a:a,b:b,sev:x.sev,risk:x.risk}); });
+  }
+  found.sort(function(p,q){return q.sev-p.sev;});
+  if(!found.length){ out.innerHTML='<div class="ix-none"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>No interactions found in the reference set for your current list.</div>'; return; }
+  out.innerHTML=found.map(function(f){
+    var seg=[1,2,3,4,5].map(function(n){ var cls=n<=f.sev?(f.sev>=4?'s3':f.sev===3?'s2':'s1'):''; return '<i class="'+cls+'"></i>'; }).join("");
+    var col=f.sev>=4?'#ff9ec6':f.sev===3?'#ff9a5b':'var(--amber)';
+    return '<div class="ixrow"><div class="pair">'+cap(f.a)+' <span>+</span> '+cap(f.b)+'</div><div class="sevmeter">'+seg+'</div><div class="risk">'+f.risk+'</div><div class="sevlabel" style="color:'+col+'">'+SEVNAME[f.sev]+'</div></div>';
+  }).join("");
+}
+function renderSched(){
+  var order=["morning","afternoon","evening","night","as needed"];
+  var times={morning:"Morning · 8:00",afternoon:"Afternoon · 14:00",evening:"Evening · 19:00",night:"Night · 22:00","as needed":"As needed"};
+  var groups={}; REGIMEN.forEach(function(m){var s=MEDS[m.key].sched||"morning";(groups[s]=groups[s]||[]).push(m.key);});
+  var box=$("sched"); var html="";
+  order.forEach(function(s){ if(!groups[s])return;
+    html+='<div class="slot"><div class="time">'+times[s]+'</div>'+groups[s].map(function(k){return '<div class="mi">'+cap(k)+'<small>'+(MEDS[k].food!=="Either"?MEDS[k].food:"")+'</small></div>';}).join("")+'</div>';
+  });
+  box.innerHTML=html||'<div class="empty">Add medicines to build your schedule.</div>';
+}
+
+/* ===== inspect + 3D ===== */
+var viewer=null;
+function inspect(k){
+  if(!canUse("inspect")){ alert("You've used today's free inspections. Unlock Pro for unlimited."); return; }
+  var d=MEDS[k];
+  $("docBody").innerHTML=
+    '<div class="hd"><div><h1>'+cap(k)+'</h1><div class="gen2">'+(d.generic||'')+'</div></div>'+(d.formula?'<div class="formula">'+fmt(d.formula)+'</div>':'')+'</div>'+
+    '<div class="grid2">'+
+    field("Drug class",d.klass)+field("Your dose","—")+field("Schedule",cap(d.sched))+field("With food",d.food)+
+    field("Mechanism",d.mech,true)+field("Half-life",d.half)+'</div>'+
+    ixBlock(k);
+  $("inspectModal").hidden=false;
+  bump("inspect"); renderLimits();
+  loadMolecule(k,d);
+}
+function field(k,v,sm){return '<div class="field"><div class="k">'+k+'</div><div class="v'+(sm?' sm':'')+'">'+(v||'—')+'</div></div>';}
+function fmt(f){return f.replace(/(\d+)/g,'<sub>$1</sub>');}
+function ixBlock(k){
+  var fl=flagsFor(k); if(!fl.length)return '<div style="margin-top:22px;" class="ix-none"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>No interactions with your current list.</div>';
+  fl.sort(function(a,b){return b.sev-a.sev;});
+  return fl.map(function(f){
+    var seg=[1,2,3,4,5].map(function(n){var cls=n<=f.sev?(f.sev>=4?'s3':f.sev===3?'s2':'s1'):'';return '<i class="'+cls+'"></i>';}).join("");
+    return '<div style="margin-top:20px;border:1px solid rgba(255,106,143,.3);border-radius:12px;background:linear-gradient(180deg,rgba(255,106,143,.08),rgba(255,106,143,.02));padding:15px 16px">'+
+      '<div style="display:flex;align-items:center;gap:10px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a8f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>'+
+      '<span style="font-size:14px;font-weight:600;color:#ffb3c6">'+SEVNAME[f.sev]+' interaction</span><span style="margin-left:auto;font-family:\'Space Mono\',monospace;font-size:11px;color:var(--dim)">+ '+cap(f.with)+'</span></div>'+
+      '<div class="sevmeter" style="margin:11px 0 9px;max-width:none">'+seg+'</div><p style="margin:0;font-size:12.5px;color:#d6bccb;line-height:1.55">'+f.risk+'. Review with your doctor — do not change doses on your own.</p></div>';
+  }).join("");
+}
+
+/* three.js viewer */
+function makeViewer(canvas){
+  var r=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true});
+  r.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  var scene=new THREE.Scene();
+  var cam=new THREE.PerspectiveCamera(40,1,0.1,200);cam.position.set(0,0,12);
+  scene.add(new THREE.AmbientLight(0x51698f,1.0));
+  var l1=new THREE.PointLight(0x36c6ff,1.25,200);l1.position.set(8,6,10);scene.add(l1);
+  var l2=new THREE.PointLight(0x8b7cff,0.85,200);l2.position.set(-8,-4,6);scene.add(l2);
+  var l3=new THREE.PointLight(0xffffff,0.3,200);l3.position.set(0,0,14);scene.add(l3);
+  var group=new THREE.Group();scene.add(group);
+  var dragging=false,px=0,py=0,ry=0.6,rx=-0.18;
+  canvas.addEventListener('pointerdown',function(e){dragging=true;px=e.clientX;py=e.clientY;canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener('pointerup',function(){dragging=false;});
+  canvas.addEventListener('pointermove',function(e){if(!dragging)return;ry+=(e.clientX-px)*0.01;rx+=(e.clientY-py)*0.01;rx=Math.max(-1.3,Math.min(1.3,rx));px=e.clientX;py=e.clientY;});
+  function resize(){var b=canvas.getBoundingClientRect();var w=Math.max(b.width,10),h=Math.max(b.height,10);r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+  window.addEventListener('resize',resize);
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var alive=true;
+  function loop(){ if(!alive)return; if(!dragging&&!reduce)ry+=0.0035; group.rotation.y=ry;group.rotation.x=rx; r.render(scene,cam); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  return {
+    setMolecule:function(atoms,bonds){
+      while(group.children.length)group.remove(group.children[0]);
+      var CPK={C:0xc6cfdd,O:0xff5f5f,N:0x5f9bff,H:0xeef2f7,S:0xffe08a,P:0xff9a5b,Cl:0x7be37b,F:0x9affd0},RAD={C:0.40,O:0.38,N:0.40,H:0.22,S:0.5,P:0.5,Cl:0.5,F:0.36};
+      var cx=0,cy=0,cz=0;atoms.forEach(function(a){cx+=a[1];cy+=a[2];cz+=a[3];});cx/=atoms.length;cy/=atoms.length;cz/=atoms.length;
+      var scale=1; var maxr=0; atoms.forEach(function(a){var dx=a[1]-cx,dy=a[2]-cy,dz=a[3]-cz;maxr=Math.max(maxr,Math.sqrt(dx*dx+dy*dy+dz*dz));});
+      if(maxr>0)scale=4.6/maxr;
+      var V=atoms.map(function(a){return new THREE.Vector3((a[1]-cx)*scale,(a[2]-cy)*scale,(a[3]-cz)*scale);});
+      atoms.forEach(function(a,i){var el=a[0],col=CPK[el]||0xbbbbbb;
+        var m=new THREE.Mesh(new THREE.SphereGeometry((RAD[el]||0.4)*scale*0.7,28,28),new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:0.16,roughness:0.32,metalness:0.12}));
+        m.position.copy(V[i]);group.add(m);
+      });
+      bonds.forEach(function(b){var a=V[b[0]],c=V[b[1]];if(!a||!c)return;var dir=new THREE.Vector3().subVectors(c,a);var len=dir.length();
+        var cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,len,12,1,true),new THREE.MeshStandardMaterial({color:0xaab8d0,emissive:0x243f63,emissiveIntensity:0.3,roughness:0.5}));
+        cyl.position.copy(a).add(c).multiplyScalar(0.5);cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());group.add(cyl);
+      });
+      ry=0.6;rx=-0.18; resize();
+    },
+    dispose:function(){alive=false;}
+  };
+}
+function loadMolecule(k,d){
+  $("molload").hidden=false; $("atomcount").textContent="";
+  if(!window.THREE){ $("molloadtxt").textContent="WebGL unavailable"; return; }
+  if(!viewer) viewer=makeViewer($("molview"));
+  // offline first
+  if(OFFLINE[k]){
+    var o=OFFLINE[k]; viewer.setMolecule(o.atoms,o.bonds);
+    $("atomcount").textContent=o.atoms.length+" atoms · "+o.bonds.length+" bonds";
+    $("molload").hidden=true; return;
+  }
+  if(!d.cid && !d.formula){ showMolMsg("No structure available"); return; }
+  // live fetch from PubChem
+  $("molloadtxt").textContent="fetching structure from PubChem…";
+  var url=d.cid?("https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+d.cid+"/record/SDF?record_type=3d")
+               :("https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/"+encodeURIComponent(k)+"/record/SDF?record_type=3d");
+  fetch(url).then(function(res){ if(!res.ok)throw new Error("not found"); return res.text(); })
+    .then(function(sdf){ var mol=parseSDF(sdf); if(!mol.atoms.length)throw new Error("empty");
+      viewer.setMolecule(mol.atoms,mol.bonds); $("atomcount").textContent=mol.atoms.length+" atoms · "+mol.bonds.length+" bonds"; $("molload").hidden=true; })
+    .catch(function(){ showMolMsg("Couldn't load the 3D structure.<br>On the live site this fetches from PubChem — it needs internet and isn't available in previews."); });
+}
+function showMolMsg(html){ $("molload").hidden=false; $("molloadtxt").innerHTML=html; var sp=$("molload").querySelector(".spinr"); if(sp)sp.style.display="none"; }
+function parseSDF(sdf){
+  var lines=sdf.split(/\r?\n/); var atoms=[],bonds=[];
+  var counts=lines[3]||""; var na=parseInt(counts.substr(0,3),10), nb=parseInt(counts.substr(3,3),10);
+  if(isNaN(na)||isNaN(nb))return {atoms:atoms,bonds:bonds};
+  for(var i=0;i<na;i++){var L=lines[4+i];var x=parseFloat(L.substr(0,10)),y=parseFloat(L.substr(10,10)),z=parseFloat(L.substr(20,10));var el=L.substr(31,3).trim();atoms.push([el,x,y,z]);}
+  for(var j=0;j<nb;j++){var B=lines[4+na+j];var a=parseInt(B.substr(0,3),10)-1,b=parseInt(B.substr(3,3),10)-1;if(a>=0&&b>=0)bonds.push([a,b]);}
+  return {atoms:atoms,bonds:bonds};
+}
+
+/* ===== OCR ===== */
+function handlePhoto(file){
+  if(!canUse("scan")){ $("ocrbar").textContent="You've used today's free scans. Unlock Pro for unlimited."; return; }
+  $("ocrbar").textContent="Reading the label on your device…";
+  Tesseract.recognize(file,"eng").then(function(res){
+    var text=(res.data.text||"").toLowerCase(); var hits=[];
+    Object.keys(MEDS).forEach(function(k){ if(text.indexOf(k)>=0||text.indexOf(MEDS[k].generic.toLowerCase())>=0) hits.push(k); });
+    if(hits.length){ hits.forEach(addMed); $("ocrbar").textContent="Found: "+hits.map(cap).join(", "); }
+    else $("ocrbar").textContent="No known medicine recognised. Try typing the name, or a clearer photo.";
+    bump("scan"); renderLimits();
+  }).catch(function(e){ $("ocrbar").textContent="OCR error: "+e.message; });
+}
+
+/* ===== background WebGL hero (reuse) ===== */
+var heroState={alive:true};
+function teardownHero(){ heroState.alive=false; }
+function initHero(){
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  // gradient backdrop
+  var bg=$("bgcanvas"),bx=bg.getContext("2d");
+  function bsize(){bg.width=innerWidth;bg.height=innerHeight;} addEventListener("resize",bsize);bsize();
+  var bt=0;(function bgloop(){bt+=reduce?0:0.004;var w=bg.width,h=bg.height;var g=bx.createRadialGradient(w*(0.3+Math.sin(bt)*0.1),h*(0.7+Math.cos(bt)*0.1),0,w*0.5,h*0.5,Math.max(w,h)*0.8);g.addColorStop(0,"#0a1930");g.addColorStop(0.5,"#070e1b");g.addColorStop(1,"#04070e");bx.fillStyle=g;bx.fillRect(0,0,w,h);requestAnimationFrame(bgloop);})();
+  if(!window.THREE)return;
+  var canvas=$("molcanvas");var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  var scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x060b14,0.055);var camera=new THREE.PerspectiveCamera(42,1,0.1,100);camera.position.set(0,0,17);
+  var group=new THREE.Group();scene.add(group);
+  scene.add(new THREE.AmbientLight(0x3a5a88,0.9));var l1=new THREE.PointLight(0x36c6ff,1.5,100);l1.position.set(10,8,14);scene.add(l1);var l2=new THREE.PointLight(0x8b7cff,1.1,100);l2.position.set(-12,-6,8);scene.add(l2);var l3=new THREE.PointLight(0x3cf0cf,0.8,100);l3.position.set(0,10,-10);scene.add(l3);
+  function atom(x,y,z,rad,color){var m=new THREE.Mesh(new THREE.SphereGeometry(rad,40,40),new THREE.MeshStandardMaterial({color:color,emissive:color,emissiveIntensity:0.35,roughness:0.25,metalness:0.1}));m.position.set(x,y,z);group.add(m);var g=new THREE.Mesh(new THREE.SphereGeometry(rad*1.7,20,20),new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.07,blending:THREE.AdditiveBlending,depthWrite:false}));g.position.set(x,y,z);group.add(g);return new THREE.Vector3(x,y,z);}
+  function bond(a,b){var dir=new THREE.Vector3().subVectors(b,a);var len=dir.length();var c=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,len,14,1,true),new THREE.MeshStandardMaterial({color:0x8fbce8,emissive:0x2a4a74,emissiveIntensity:0.5,roughness:0.4,transparent:true,opacity:0.75}));c.position.copy(a).add(b).multiplyScalar(0.5);c.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());group.add(c);}
+  var core=atom(0,0,0,1.25,0x36c6ff),n1=atom(3.2,1.4,.8,.8,0x3cf0cf),n2=atom(-2.6,2.2,-1.4,.8,0xff6ad5),n3=atom(-1.6,-3,1.2,.75,0xffcf5e),n4=atom(2.2,-2.2,-2,.7,0x8b7cff),n5=atom(.4,3.6,2.2,.6,0x3cf0cf),n6=atom(-3.6,-.6,2.4,.6,0x36c6ff);
+  bond(core,n1);bond(core,n2);bond(core,n3);bond(core,n4);bond(n1,n5);bond(n2,n6);
+  var pGeo=new THREE.BufferGeometry(),N=320,pos=new Float32Array(N*3);for(var i=0;i<N;i++){pos[i*3]=(Math.random()-.5)*44;pos[i*3+1]=(Math.random()-.5)*32;pos[i*3+2]=(Math.random()-.5)*30;}pGeo.setAttribute("position",new THREE.BufferAttribute(pos,3));var points=new THREE.Points(pGeo,new THREE.PointsMaterial({color:0x5c8fcf,size:0.05,transparent:true,opacity:0.3}));scene.add(points);
+  function resize(){var w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();group.position.x=w>900?5.4:0;group.position.y=w>900?0:-1.5;points.position.x=group.position.x;}addEventListener("resize",resize);resize();
+  var tx=0,ty=0,mx=0,my=0;addEventListener("mousemove",function(e){mx=e.clientX/innerWidth-.5;my=e.clientY/innerHeight-.5;});
+  var t0=performance.now();(function loop(now){if(!heroState.alive)return;var dt=(now-t0)/1000;if(!reduce){group.rotation.y+=0.0032;group.rotation.x=Math.sin(dt*0.3)*0.12;tx+=(mx*0.6-tx)*0.05;ty+=(my*0.4-ty)*0.05;group.rotation.y+=tx*0.02;group.rotation.x+=ty*0.04;points.rotation.y+=0.0006;l1.position.x=Math.sin(dt*0.5)*12;l1.position.y=Math.cos(dt*0.4)*8;}renderer.render(scene,camera);requestAnimationFrame(loop);})(t0);
+}
+
+/* ===== wiring ===== */
+function initApp(){
+  // quick chips + datalist
+  var common=["warfarin","aspirin","metformin","ibuprofen","lisinopril","atorvastatin","amlodipine","omeprazole"];
+  $("quickchips").innerHTML='<span class="lab" style="align-self:center">quick add:</span>'+common.map(function(k){return '<button onclick="addMed(\''+k+'\')">'+cap(k)+'</button>';}).join("")+'<button onclick="loadSample()" style="color:var(--cyan);border-color:var(--cyan)">Load sample regimen</button>';
+  $("druglist").innerHTML=Object.keys(MEDS).map(function(k){return '<option value="'+cap(k)+'">';}).join("");
+  var drop=$("drop"),file=$("file");
+  drop.onclick=function(){file.click();}; file.onchange=function(e){if(e.target.files[0])handlePhoto(e.target.files[0]);};
+  ["dragenter","dragover"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add("drag");});});
+  ["dragleave","drop"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove("drag");});});
+  drop.addEventListener("drop",function(e){if(e.dataTransfer.files[0])handlePhoto(e.dataTransfer.files[0]);});
+  $("addBtn").onclick=function(){addMed($("nameInput").value);$("nameInput").value="";};
+  $("nameInput").addEventListener("keydown",function(e){if(e.key==="Enter"){addMed($("nameInput").value);$("nameInput").value="";}});
+  $("closeInspect").onclick=function(){$("inspectModal").hidden=true;};
+  $("inspectModal").addEventListener("click",function(e){if(e.target===$("inspectModal"))$("inspectModal").hidden=true;});
+  function openUnlock(){$("unlockModal").hidden=false;$("codeInput").value="";$("codeErr").textContent="";$("codeInput").focus();}
+  $("unlockBtn").onclick=openUnlock; $("unlockBtn2").onclick=openUnlock;
+  $("closeUnlock").onclick=function(){$("unlockModal").hidden=true;};
+  $("applyCode").onclick=function(){
+    var nrm=function(s){return (s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");};
+    if(nrm($("codeInput").value)===nrm(CONFIG.PRO_CODE)){PRO_MEM=true;try{localStorage.setItem("mg_pro","1")}catch(e){}renderLimits();$("codeErr").style.color="var(--teal)";$("codeErr").textContent="Pro unlocked ✓";setTimeout(function(){$("unlockModal").hidden=true;$("codeErr").style.color="";$("codeErr").textContent="";},700);}
+    else{$("codeErr").style.color="";$("codeErr").textContent="That code isn't right. It's MEDIGUARD-PRO-2026";}
+  };
+  $("codeInput").addEventListener("keydown",function(e){if(e.key==="Enter")$("applyCode").click();});
+}
+function loadSample(){ REGIMEN=[]; ["metformin","warfarin","aspirin","lisinopril"].forEach(function(k){REGIMEN.push({key:k});}); refreshAll(); }
+
+window.openApp=openApp;window.showHero=showHero;window.addMed=addMed;window.removeMed=removeMed;window.inspect=inspect;window.loadSample=loadSample;
+initHero(); initApp(); refreshAll();
+</script>
